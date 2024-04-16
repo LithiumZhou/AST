@@ -11,12 +11,15 @@
 
 import csv
 import json
+import os
+
 import torchaudio
 import numpy as np
 import torch
 import torch.nn.functional
 from torch.utils.data import Dataset
 import random
+from torch.utils.data import WeightedRandomSampler
 
 def make_index_dict(label_csv):
     index_lookup = {}
@@ -150,7 +153,7 @@ class AudiosetDataset(Dataset):
         """
         returns: image, audio, nframes
         where image is a FloatTensor of size (3, H, W)
-        audio is a FloatTensor of size (N_freq, N_frames) for spectrogram, or (N_frames) for waveform
+        audio is a FloatTensor of size (N_freq, N_frames) for spectrogram 频谱, or (N_frames) for waveform 波谱
         nframes is an integer
         """
         # do mix-up for this sample (controlled by the given mixup rate)
@@ -215,3 +218,28 @@ class AudiosetDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+
+if __name__ == "__main__":
+
+    audio_conf = {'num_mel_bins': 128, 'target_length': 512, 'freqm': 24, 'timem': 96,
+                  'mixup': 0, 'dataset': "esc50", 'mode': 'train', 'mean': -6.6268077,
+                  'std': 5.358466,
+                  'noise': False}
+
+    data_train =r"C:\Users\zhoujia\Desktop\python项目\AST\ast\egs\esc50\data\datafiles\esc_train_data_2.json"
+    #samples_weight = np.loadtxt(data_train[:-5] + '_weight.csv', delimiter=',')
+    #sampler = WeightedRandomSampler(samples_weight, len(samples_weight), replacement=True)
+    train_loader = torch.utils.data.DataLoader(AudiosetDataset(dataset_json_file=data_train,
+                                                                              label_csv=r"C:\Users\zhoujia\Desktop\python项目\AST\ast\egs\esc50\data\esc_class_labels_indices.csv",
+                                                                              audio_conf=audio_conf),
+                                                              batch_size=5,num_workers=10,shuffle=True,pin_memory=True)
+    print(os.path.exists(data_train))
+    print(os.path.exists(r"C:\Users\zhoujia\Desktop\python项目\AST\ast\egs\esc50\data\esc_class_labels_indices.csv"))
+    # 获取数据加载器的第一个批次的数据
+    # first_batch = next(iter(train_loader))
+    #
+    # # first_batch 是一个元组，第一个元素是数据，第二个元素是标签
+    # data, labels = first_batch
+    #
+    # # 查看数据的形状
+    # print(data.shape)

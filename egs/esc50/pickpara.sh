@@ -1,16 +1,8 @@
-#!/bin/bash
-#SBATCH -p gpu
-#SBATCH -x sls-titan-[0-2]
-#SBATCH --gres=gpu:4
-#SBATCH -c 4
-#SBATCH -n 1
-#SBATCH --mem=48000
-#SBATCH --job-name="ast-esc50"
-#SBATCH --output=./log_%j.txt
+
+
 
 set -x
-# comment this line if not running on sls cluster
-#. /data/sls/scratch/share-201907/slstoolchainrc
+
 source ../../venvast/bin/activate
 export TORCH_HOME=../../pretrained_models
 
@@ -19,13 +11,28 @@ dataset=esc50
 imagenetpretrain=True
 audiosetpretrain=True
 bal=none
-pos_attention=False
-if [ $audiosetpretrain == True ]
-then
-  lr=1.5e-5
-else
-  lr=1e-4
-fi
+# 定义可能的超参数值的数组
+lr_options=(1e-5 1.25e-5 1.5e-5 0.75e-5 1.35e-5 1.6e-5 1.8e-5 2-e5 0.8e-5 0.9e-5 )
+batch_size_options=(44 46 48 44 50 52 42 40 38 36)
+lrscheduler_decay_options=(0.85 0.88 0.9 0.92 0.83 0.8)
+# 从这些数组中随机选取一个值
+
+lr=${lr_options[$RANDOM % ${#lr_options[@]}]}
+#batch_size=${batch_size_options[$RANDOM % ${#batch_size_options[@]}]}
+lrscheduler_decay=${lrscheduler_decay_options[$RANDOM %{#lrscheduler_decay_options[@]}]}
+
+# 打印选取的值
+echo "Selected learning rate: $lr"
+#echo "Selected batch size: $batch_size"
+echo "Selected decay: $lrscheduler_decay"
+
+#if [ $audiosetpretrain == True ]
+#then
+ # lr=1.5e-5
+#else
+ # lr=1e-4
+#fi
+
 freqm=24
 timem=96
 mixup=0
@@ -44,9 +51,9 @@ loss=CE
 warmup=False
 lrscheduler_start=5
 lrscheduler_step=1
-lrscheduler_decay=0.9
+#lrscheduler_decay=0.9
 
-base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-posatt${pos_attention}
+base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-lrdecay${lrscheduler_decay}
 
 python ./prep_esc50.py
 
@@ -89,7 +96,7 @@ do
   --freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
   --tstride $tstride --fstride $fstride --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain \
   --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
-  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise} --pos_attention ${pos_attention}
+  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise}
 done
 
-python ./get_esc_result.py --exp_path ${base_exp_dir}
+#python ./get_esc_result.py --exp_path ${base_exp_dir}

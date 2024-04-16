@@ -1,3 +1,11 @@
+
+# -*- coding: utf-8 -*-
+# @Time    : 6/10/21 5:04 PM
+# @Author  : Yuan Gong
+# @Affiliation  : Massachusetts Institute of Technology
+# @Email   : yuangong@mit.edu
+# @File    : ast_models.py
+
 import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast
@@ -24,10 +32,8 @@ class PatchEmbed(nn.Module):
     def forward(self, x):
         x = self.proj(x).flatten(2).transpose(1, 2)
         return x
-
-
 class WindowAttention(nn.Module):
-    def __init__(self, window_size,dim, num_heads, qkv_bias=True, attn_drop=0., proj_drop=0.):
+    def __init__(self, dim, window_size, num_heads, qkv_bias=True, attn_drop=0., proj_drop=0.):
         super().__init__()
         self.dim = dim
         self.window_size = window_size  # [Mh, Mw]
@@ -68,7 +74,6 @@ class WindowAttention(nn.Module):
             x: input features with shape of (num_windows*B, Mh*Mw, C)
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
         """
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # [batch_size*num_windows, Mh*Mw, total_embed_dim]
         B_, N, C = x.shape
         # qkv(): -> [batch_size*num_windows, Mh*Mw, 3 * total_embed_dim]
@@ -87,15 +92,7 @@ class WindowAttention(nn.Module):
         relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
             self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1)
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # [nH, Mh*Mw, Mh*Mw]
-        relative_position_bias = relative_position_bias.unsqueeze(0)
-
-        zeros1 = torch.zeros(1,self.num_heads, 2, relative_position_bias.shape[2]).to(device)
-        zeros2 = torch.zeros(1,self.num_heads,relative_position_bias.shape[2]+2,2).to(device)
-        relative_position_bias = torch.cat([zeros1, relative_position_bias], dim=2)
-        relative_position_bias = torch.cat([zeros2,relative_position_bias],dim=3)
-
-
-        attn = attn + relative_position_bias
+        attn = attn + relative_position_bias.unsqueeze(0)
 
         attn = self.softmax(attn)
 
@@ -108,8 +105,6 @@ class WindowAttention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-
-
 class ASTModel(nn.Module):
     """
     The AST model.
@@ -122,7 +117,7 @@ class ASTModel(nn.Module):
     :param audioset_pretrain: if use full AudioSet and ImageNet pretrained model
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
-    def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True,pos_attention=False):
+    def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True):
 
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
@@ -202,44 +197,16 @@ class ASTModel(nn.Module):
                 audioset_mdl_url = 'https://www.dropbox.com/s/cv4knew8mvbrnvq/audioset_0.4593.pth?dl=1'
                 wget.download(audioset_mdl_url, out='../../pretrained_models/audioset_10_10_0.4593.pth')
             sd = torch.load('../../pretrained_models/audioset_10_10_0.4593.pth', map_location=device)
-            audio_model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=False, audioset_pretrain=False, model_size='base384', verbose=False,pos_attention=False)
+            audio_model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=False, audioset_pretrain=False, model_size='base384', verbose=False)
             audio_model = torch.nn.DataParallel(audio_model)
             audio_model.load_state_dict(sd, strict=False)
             self.v = audio_model.module.v
             self.original_embedding_dim = self.v.pos_embed.shape[2]
             self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim), nn.Linear(self.original_embedding_dim, label_dim))
+            self.v.blocks.attn = WindowAttention
+            
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
             num_patches = f_dim * t_dim
-            if pos_attention == True:
-                print("lookhere-------------------------")
-                print("lookhere-------------------------")
-                print("lookhere-------------------------")
-                pretrained_state_dict = audio_model.state_dict()
-                for block in self.v.blocks:
-                    block.attn = WindowAttention(window_size=(f_dim,t_dim), dim=768, num_heads=12)
-
-                attn_keys = [k for k in pretrained_state_dict.keys() if "attn" in k]
-                attn_params = {
-                    '.'.join(k.split('.')[3:7]): pretrained_state_dict[k]
-                    for k in attn_keys
-                }
-                attn_blocks = {f"{i}": block.attn for i, block in enumerate(self.v.blocks)}
-                for i, block in enumerate(self.v.blocks):
-                    # 获取当前块的 WindowAttention 层的状态字典
-                    window_attn_state_dict = block.attn.state_dict()
-                    new_window_attn_state_dict = {}
-                    # 根据块编号和键名组合在新状态字典中设置权重
-                    for key in window_attn_state_dict.keys():
-                        attn_key = f"{i}.attn.{key}"
-                        if attn_key in attn_params:
-                            new_window_attn_state_dict[key] = attn_params[attn_key]
-                        else:
-                            # 如果找不到对应键，则保留原始初始化的权重
-                            new_window_attn_state_dict[key] = window_attn_state_dict[key]
-
-                    # 将新状态字典的权重加载到当前块的 WindowAttention 模块
-                    block.attn.load_state_dict(new_window_attn_state_dict, strict=False)
-
             self.v.patch_embed.num_patches = num_patches
             if verbose == True:
                 print('frequncey stride={:d}, time stride={:d}'.format(fstride, tstride))
@@ -277,6 +244,7 @@ class ASTModel(nn.Module):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
+
         B = x.shape[0]
         x = self.v.patch_embed(x)
         cls_tokens = self.v.cls_token.expand(B, -1, -1)
@@ -293,21 +261,10 @@ class ASTModel(nn.Module):
         return x
 
 if __name__ == '__main__':
-    # input_tdim = 100
-    # ast_mdl = ASTModel(input_tdim=input_tdim)
-    # # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
-    # test_input = torch.rand([10, input_tdim, 128])
-    # test_output = ast_mdl(test_input)
-    # # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
-    # print(test_output.shape)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     input_tdim = 256
-    ast_mdl = ASTModel(input_tdim=input_tdim, label_dim=50, audioset_pretrain=True)
-    ast_mdl = ast_mdl.to(device)
+    ast_mdl = ASTModel(input_tdim=input_tdim,label_dim=50, audioset_pretrain=True)
     # input a batch of 10 spectrogram, each with 512 time frames and 128 frequency bins
     test_input = torch.rand([10, input_tdim, 128])
-    test_input = test_input.half()
-    test_input = test_input.to(device)
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 50], i.e., 10 samples, each with prediction of 50 classes.
     print(test_output.shape)

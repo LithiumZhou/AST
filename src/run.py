@@ -68,6 +68,7 @@ parser.add_argument("--lrscheduler_decay", type=float, default=0.5, help="the le
 parser.add_argument('--wa', help='if weight averaging', type=ast.literal_eval, default='False')
 parser.add_argument('--wa_start', type=int, default=1, help="which epoch to start weight averaging the checkpoint model")
 parser.add_argument('--wa_end', type=int, default=5, help="which epoch to end weight averaging the checkpoint model")
+parser.add_argument('--pos_attention', help="加不加位置编码")
 
 # if args.dataset == 'audioset':
 #     if len(train_loader.dataset) > 2e5:
@@ -132,7 +133,7 @@ if args.model == 'ast':
 
     audio_model = models.ASTModel(label_dim=args.n_class, fstride=args.fstride, tstride=args.tstride, input_fdim=128,
                                   input_tdim=args.audio_length, imagenet_pretrain=args.imagenet_pretrain,
-                                  audioset_pretrain=args.audioset_pretrain, model_size='base384')
+                                  audioset_pretrain=args.audioset_pretrain, model_size='base384',pos_attention=args.pos_attention)
 
 print("\nCreating experiment directory: %s" % args.exp_dir)
 os.makedirs("%s/models" % args.exp_dir)
