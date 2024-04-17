@@ -215,12 +215,12 @@ def train(audio_model, train_loader, test_loader, args):
         if cum_mAP > best_cum_mAP:
             best_cum_epoch = epoch
             best_cum_mAP = cum_mAP
-        if acc > 0.94:
+
             if best_epoch == epoch:
                 torch.save(audio_model.state_dict(), "%s/models/best_audio_model.pth" % (exp_dir))
                 torch.save(optimizer.state_dict(), "%s/models/best_optim_state.pth" % (exp_dir))
-
-            torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, epoch))
+            
+            #torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, epoch))
             if len(train_loader.dataset) > 2e5:
                 torch.save(optimizer.state_dict(), "%s/models/optim_state.%d.pth" % (exp_dir, epoch))
 

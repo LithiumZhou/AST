@@ -68,7 +68,7 @@ parser.add_argument("--lrscheduler_decay", type=float, default=0.5, help="the le
 parser.add_argument('--wa', help='if weight averaging', type=ast.literal_eval, default='False')
 parser.add_argument('--wa_start', type=int, default=1, help="which epoch to start weight averaging the checkpoint model")
 parser.add_argument('--wa_end', type=int, default=5, help="which epoch to end weight averaging the checkpoint model")
-parser.add_argument('--pos_attention', help="加不加位置编码")
+parser.add_argument('--pos_attention', type=ast.literal_eval,help="加不加位置编码")
 
 # if args.dataset == 'audioset':
 #     if len(train_loader.dataset) > 2e5:

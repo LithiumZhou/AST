@@ -210,6 +210,8 @@ class ASTModel(nn.Module):
             self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim), nn.Linear(self.original_embedding_dim, label_dim))
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
             num_patches = f_dim * t_dim
+            self.control = nn.Parameter(torch.tensor([0.5]))
+                                   
             if pos_attention == True:
                 print("lookhere-------------------------")
                 print("lookhere-------------------------")
@@ -239,7 +241,7 @@ class ASTModel(nn.Module):
 
                     # 将新状态字典的权重加载到当前块的 WindowAttention 模块
                     block.attn.load_state_dict(new_window_attn_state_dict, strict=False)
-
+            
             self.v.patch_embed.num_patches = num_patches
             if verbose == True:
                 print('frequncey stride={:d}, time stride={:d}'.format(fstride, tstride))
@@ -288,6 +290,7 @@ class ASTModel(nn.Module):
             x = blk(x)
         x = self.v.norm(x)
         x = (x[:, 0] + x[:, 1]) / 2
+        #x = (self.control*x[:, 0]) + ((1-self.control)*x[:, 1])
 
         x = self.mlp_head(x)
         return x

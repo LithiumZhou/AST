@@ -19,10 +19,10 @@ dataset=esc50
 imagenetpretrain=True
 audiosetpretrain=True
 bal=none
-pos_attention=False
+pos_attention=True
 if [ $audiosetpretrain == True ]
 then
-  lr=1.5e-5
+  lr=1.53e-5
 else
   lr=1e-4
 fi
@@ -30,7 +30,7 @@ freqm=24
 timem=96
 mixup=0
 epoch=25
-batch_size=48
+batch_size=38
 fstride=10
 tstride=10
 
@@ -44,7 +44,7 @@ loss=CE
 warmup=False
 lrscheduler_start=5
 lrscheduler_step=1
-lrscheduler_decay=0.9
+lrscheduler_decay=0.87
 
 base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-posatt${pos_attention}
 
