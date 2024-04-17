@@ -19,6 +19,7 @@ model=ast
 dataset=speechcommands
 imagenetpretrain=True
 audiosetpretrain=False
+pos_attention=False
 bal=none
 lr=2.5e-4
 epoch=30
@@ -61,4 +62,4 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../../src/run.py --model ${model} --datase
 --freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise} \
 --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
---tstride $tstride --fstride $fstride --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain > $exp_dir/log.txt
+--tstride $tstride --fstride $fstride --pos_attention $pos_attention --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain > $exp_dir/log.txt

@@ -15,3 +15,4 @@ src/test_wget.py
 .idea
 egs/esc50/exp/*
 #egs/esc50/data/*
+.ipynb_checkpoints/
